@@ -15,36 +15,46 @@ class WidgetIncomeChart extends ChartWidget
     protected static string $color = 'success';
 
     use InteractsWithPageFilters;
-
     protected function getData(): array
     {
-        $startDate = !is_null($this->filters['startDate'] ?? null) ?
-            Carbon::parse($this->filters['startDate']) :
-            null;
+        $startDate = $this->filters['startDate'] ?? null;
+        $endDate = $this->filters['endDate'] ?? now();
 
-        $endDate = !is_null($this->filters['endDate'] ?? null) ?
-            Carbon::parse($this->filters['endDate']) :
-            now();
+        try {
+            $startDate = Carbon::parse($startDate);
+        } catch (\Throwable $th) {
+            $startDate = null;
+        }
+
+        try {
+            $endDate = Carbon::parse($endDate);
+        } catch (\Throwable $th) {
+            $endDate = now();
+        }
 
         $data = Trend::query(Transaction::incomes())
             ->between(
                 start: $startDate,
                 end: $endDate,
             )
-            ->perDay()
+            ->perMonth()
             ->sum('amount');
 
         return [
             'datasets' => [
                 [
-                    'label' => 'Pemasukan Per Hari',
-                    'data' => $data->map(fn (TrendValue $value) => $value->aggregate),
+                    'label' => 'Pemasukan Per Bulan',
+                    'data' => $data->map(function (TrendValue $value) {
+                        return $value->aggregate;
+                    }),
                 ],
             ],
-            'labels' => $data->map(fn (TrendValue $value) => $value->date),
+            'labels' => $data->map(function (TrendValue $value) {
+                // Format bulan dan tahun saja
+                return Carbon::parse($value->date)->format('M Y');
+            }),
         ];
     }
-
     protected function getType(): string
     {
         return 'line';
